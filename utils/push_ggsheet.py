@@ -1,17 +1,19 @@
+import os
 import json
 import re
-
 import streamlit as st
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
-
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 def _get_service():
-    # Trỏ thẳng đến đường dẫn file JSON nằm trong thư mục .streamlit của bạn
+    # Lấy thư mục chứa file python hiện tại, tự động nối đến file json trong .streamlit
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.join(current_dir, ".streamlit", "readbook-509104-4e0d7f4ac3c8.json")
+    
     creds = Credentials.from_service_account_file(
-        r".streamlit/readbook-509104-4e0d7f4ac3c8.json", 
+        json_path, 
         scopes=SCOPES
     )
     return build("sheets", "v4", credentials=creds, cache_discovery=False)
