@@ -258,7 +258,7 @@ if st.session_state.saved_quotes:
         with st.spinner("Đang đồng bộ lên Google Sheets..."):
             book_title = st.session_state.get("current_file_name", "Sách").rsplit(".", 1)[0]
             if push_data_to_google_sheet(df_quotes, book_title):
-                st.success("Đồng bộ dữ liệu lên Google Sheets thành công! 🎉")
+                st.success("Đồng bộ dữ liệu lên Google Sheets thành công! 🎉\n\nLink lưu trữ: https://docs.google.com/spreadsheets/d/1-KdWo05lCdwLFGogWexM6oGc7IKSXtVOvDZSWj0u1n0/edit?gid=529665069#gid=529665069")
 
     # 3. Tải PDF chuẩn A4
     pdf_data = generate_quotes_pdf(df_quotes)
