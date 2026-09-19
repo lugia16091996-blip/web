@@ -52,11 +52,11 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         leftIndent=0
     )
 
-    # Style riêng cho các đoạn hội thoại bắt đầu bằng dấu gạch ngang (-)
+    # Style riêng cho các đoạn hội thoại bắt đầu bằng dấu gạch ngang
     dialogue_style = ParagraphStyle(
         'BookDialogue',
         parent=body_style,
-        leftIndent=20,    # Thụt lề sâu hơn một chút để phân biệt rõ câu thoại nhân vật
+        leftIndent=20,    # Thụt lề phân biệt rõ câu thoại nhân vật
         spaceBefore=4,
         spaceAfter=6
     )
@@ -88,10 +88,10 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
     full_text = re.sub(r'\s*\n\s*', ' ', full_text)
     full_text = re.sub(r'[ \t]+', ' ', full_text).strip()
 
-    # 3. Ép buộc xuống hàng thông minh:
-    # - Trước dấu gạch ngang đối thoại (ví dụ: " - " hoặc " -") sẽ được chèn ký hiệu xuống dòng đặc biệt (\n)
-    # - Sau dấu hai chấm kết hợp khoảng trắng (ví dụ: ": ") sẽ được chèn ký hiệu xuống dòng đặc biệt (\n)
-    formatted_text = re.sub(r'\s*-\s+', '\n- ', full_text)
+    # 3. Bổ sung ép buộc xuống hàng thông minh cho CẢ DẤU GẠCH DÀI (–, —) VÀ GẠCH NGẮN (-) VÀ DẤU HAI CHẤM (:)
+    # Bất cứ chỗ nào xuất hiện dấu gạch ngang (ngắn hoặc dài) có khoảng trắng bao quanh đều được tách dòng
+    formatted_text = re.sub(r'\s*[-–—]\s+', '\n- ', full_text)
+    # Tách dòng khi gặp dấu hai chấm
     formatted_text = re.sub(r':\s+', ':\n', formatted_text)
 
     # 4. Tách các đoạn văn dựa trên ký tự xuống dòng vừa chèn
@@ -102,8 +102,8 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         if not clean_para:
             continue
             
-        # Nếu đoạn bắt đầu bằng dấu gạch ngang thì dùng style hội thoại (thụt lề)
-        if clean_para.startswith("-"):
+        # Nếu đoạn bắt đầu bằng dấu gạch ngang (bất kể ngắn hay dài) thì dùng style hội thoại
+        if clean_para.startswith(("-", "–", "—")):
             story.append(Paragraph(clean_para, dialogue_style))
         else:
             story.append(Paragraph(clean_para, body_style))
