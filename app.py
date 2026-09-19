@@ -13,6 +13,7 @@ from utils.storage_manager import convert_df_to_excel, init_session_state
 from utils.tts_player import render_audio_section, render_tts_player
 from utils.push_ggsheet import push_data_to_google_sheet  
 from utils.pdf_generator import generate_quotes_pdf
+from utils.pdf_generator_full import generate_full_book_pdf
 
 # Cấu hình tiêu đề trang web
 st.set_page_config(
