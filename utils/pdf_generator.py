@@ -1,12 +1,23 @@
 import io
+import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-import os
 
+# 1. Đăng ký font tiếng Việt một lần duy nhất khi load module
+# Trỏ chuẩn xác vào thư mục assets bên cạnh file script hiện tại
+font_path = os.path.join(os.path.dirname(__file__), "../assets/Merriweather_24pt-Regular.ttf")
+
+if os.path.exists(font_path):
+    pdfmetrics.registerFont(TTFont('VietnameseFont', font_path))
+    font_name = 'VietnameseFont'
+else:
+    # Fallback nếu vô tình quên bỏ file vào assets
+    font_name = 'Helvetica'
+    
 def generate_quotes_pdf(df_quotes):
     buffer = io.BytesIO()
     
@@ -21,17 +32,8 @@ def generate_quotes_pdf(df_quotes):
     )
     
     story = []
-    
-    # Đăng ký font tiếng Việt (Sử dụng Arial hoặc DejaVuSans có sẵn trong hệ thống hoặc đính kèm)
-    # Nếu chạy trên Windows, có thể trỏ tới đường dẫn C:/Windows/Fonts/arial.ttf
-    font_path = "C:/Windows/Fonts/arial.ttf"
-    if os.path.exists(font_path):
-        pdfmetrics.registerFont(TTFont('VietnameseFont', font_path))
-        font_name = 'VietnameseFont'
-    else:
-        font_name = 'Helvetica' # Fallback nếu không tìm thấy font
         
-    # Định nghĩa Styles
+    # Định nghĩa Styles sử dụng đúng font_name đã đăng ký phía trên
     styles = getSampleStyleSheet()
     
     title_style = ParagraphStyle(
