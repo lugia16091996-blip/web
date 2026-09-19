@@ -238,61 +238,56 @@ if st.session_state.saved_quotes:
     st.markdown("---")
     st.subheader("📥 Xuất dữ liệu & Đồng bộ")
 
-    col_s1, col_s2, col_s3 = st.columns(3)
+    # Chia thành 4 cột thay vì 3 cột như cũ
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
 
     with col_s1:
         excel_data = convert_df_to_excel(df_quotes)
         
-        # Lấy thời gian chuẩn theo múi giờ Việt Nam (Asia/Ho_Chi_Minh)
         time_str = pd.Timestamp.now(tz="Asia/Ho_Chi_Minh").strftime("%Y%m%d_%H%M%S")
-        
-        # Xử lý tên sách an toàn tuyệt đối với ký tự đặc biệt và tiếng Việt
         import unicodedata
         current_book = st.session_state.get("current_file_name", "sach").rsplit(".", 1)[0]
-        
-        # 1. Chuyển tiếng Việt có dấu thành không dấu
         nfkd_form = unicodedata.normalize('NFKD', current_book)
         no_accent_book = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-        
-        # 2. Chỉ giữ lại chữ cái, số, khoảng trắng, gạch dưới, gạch ngang
         safe_book_name = "".join(c if c.isalnum() or c in (" ", "_", "-") else "_" for c in no_accent_book)
-        
-        # 3. Gom nhiều khoảng trắng/gạch dưới liên tiếp thành 1 và thay khoảng trắng bằng gạch dưới
         import re
-        safe_book_name = re.sub(r'[\s_]+', '_', safe_book_name).strip('_')
-        
-        # 4. Giới hạn độ dài tên sách (tối đa 50 ký tự) để tránh lỗi đường dẫn file quá dài
-        safe_book_name = safe_book_name[:50]
-        
-        # Ghép thành tên file hoàn chỉnh: 20260919_143500_Jack_Reacher_9_cau_hay.xlsx
+        safe_book_name = re.sub(r'[\s_]+', '_', safe_book_name).strip('_')[:50]
         dynamic_file_name = f"{time_str}_{safe_book_name}_notebook.xlsx"
 
         st.download_button(
-            label="📊 Tải xuống file Excel (.xlsx)",
+            label="📊 Tải Excel",
             data=excel_data,
             file_name=dynamic_file_name,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="btn_download_excel_quotes"
+            key="btn_download_excel_quotes",
+            use_container_width=True
         )
         
     with col_s2:
-        if st.button("☁️ Đẩy dữ liệu lên Google Sheets", use_container_width=True):
+        if st.button("☁️ Google Sheets", use_container_width=True):
             with st.spinner("Đang đồng bộ lên Google Sheets..."):
                 book_title = st.session_state.get("current_file_name", "Sách").rsplit(".", 1)[0]
                 if push_data_to_google_sheet(df_quotes, book_title):
-                    st.success(f"Đồng bộ dữ liệu lên Google Sheets thành công! 🎉\n... \nLink lưu trữ: https://docs.google.com/spreadsheets/d/1-KdWo05lCdwLFGogWexM6oGc7IKSXtVOvDZSWj0u1n0/edit?gid=529665069#gid=529665069")
+                    st.success("Đồng bộ thành công! 🎉")
+
     with col_s3:
-        # Import hàm tạo PDF ở đầu file app.py: from utils.pdf_generator import generate_quotes_pdf
+        # Nút Gen lại / Cập nhật PDF trực tiếp ngay trên giao diện
+        if st.button("🔄 Gen lại PDF", use_container_width=True, key="btn_regenerate_pdf"):
+            st.success("Đã cập nhật lại nội dung PDF mới nhất!")
+            st.rerun()
+
+    with col_s4:
         from utils.pdf_generator import generate_quotes_pdf
         pdf_data = generate_quotes_pdf(df_quotes)
         pdf_file_name = f"{time_str}_so_tay_cau_hay.pdf"
         
         st.download_button(
-            label="📄 Tải PDF chuẩn A4",
+            label="📄 Tải PDF A4",
             data=pdf_data,
             file_name=pdf_file_name,
             mime="application/pdf",
-            key="btn_download_pdf_quotes"
+            key="btn_download_pdf_quotes",
+            use_container_width=True
         )
         
     if st.button("🗑️ Xóa sạch danh sách để đọc cuốn tiếp theo", key="btn_clear_all_quotes"):
