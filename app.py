@@ -8,7 +8,7 @@ from utils.document_processor import (
 )
 from utils.storage_manager import convert_df_to_excel, init_session_state
 from utils.tts_player import render_tts_player , render_audio_section
-from utils.push_ggsheet import push_data_to_google_sheet_oauth  
+from utils.push_ggsheet import push_data_to_google_sheet  
 # Cấu hình tiêu đề trang web
 st.set_page_config(
     page_title="Text to speech and notebook", page_icon="📚", layout="centered"
@@ -213,15 +213,9 @@ if st.session_state.saved_quotes:
         )
         
     with col_s2:
-        # Nút đẩy dữ liệu lên Google Sheets gọi từ file riêng
+        # Trong khối nút đẩy dữ liệu
         if st.button("☁️ Đẩy dữ liệu lên Google Sheets", use_container_width=True):
             with st.spinner("Đang đồng bộ lên Google Sheets..."):
-                success = push_data_to_google_sheet_oauth(df_quotes)
-                if success:
+                book_title = st.session_state.get("current_file_name", "Sách").rsplit(".", 1)[0]
+                if push_data_to_google_sheet(df_quotes, book_title):
                     st.success("Đồng bộ dữ liệu lên Google Sheets thành công! 🎉")
-
-    if st.button("🗑️ Xóa sạch danh sách để đọc cuốn tiếp theo", key="btn_clear_all_quotes"):
-        st.session_state.saved_quotes = []
-        st.session_state.book_pages = []
-        st.session_state.current_page = 1
-        st.rerun()
