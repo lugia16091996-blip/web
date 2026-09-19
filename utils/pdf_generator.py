@@ -2,7 +2,7 @@ import io
 import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -16,10 +16,9 @@ if os.path.exists(font_path):
 else:
     font_name = 'Helvetica'
 
-# Hàm vẽ màu nền vàng ấm cho từng trang giấy PDF
+# Hàm vẽ màu nền vàng ấm cho trang PDF
 def draw_warm_background(canvas, doc):
     canvas.saveState()
-    # Mã màu vàng kem ấm áp (Warm Cream/Sepia)
     canvas.setFillColor(colors.HexColor("#fbf7ee")) 
     canvas.rect(0, 0, doc.pagesize[0], doc.pagesize[1], fill=1, stroke=0)
     canvas.restoreState()
@@ -47,7 +46,7 @@ def generate_quotes_pdf(df_quotes):
         fontSize=18,
         leading=22,
         alignment=1,
-        textColor=colors.HexColor("#7c2d12"), # Đổi màu chữ tiêu đề sang nâu đỏ trầm ấm
+        textColor=colors.HexColor("#7c2d12"),
         spaceAfter=15
     )
     
@@ -57,8 +56,8 @@ def generate_quotes_pdf(df_quotes):
         fontName=font_name,
         fontSize=13,
         leading=16,
-        textColor=colors.HexColor("#9a3412"), # Tên sách màu cam đất/nâu ấm
-        spaceBefore=12,
+        textColor=colors.HexColor("#9a3412"),
+        spaceBefore=14,
         spaceAfter=6
     )
     
@@ -68,7 +67,7 @@ def generate_quotes_pdf(df_quotes):
         fontName=font_name,
         fontSize=10,
         leading=15,
-        textColor=colors.HexColor("#292524") # Chữ màu nâu đen dịu mắt thay vì đen tuyền
+        textColor=colors.HexColor("#292524")
     )
     
     meta_style = ParagraphStyle(
@@ -77,7 +76,7 @@ def generate_quotes_pdf(df_quotes):
         fontName=font_name,
         fontSize=9,
         leading=13,
-        textColor=colors.HexColor("#78716c") # Màu xám nâu cho phần meta (thời gian, cảm xúc)
+        textColor=colors.HexColor("#78716c")
     )
 
     # Tiêu đề tài liệu
@@ -88,44 +87,30 @@ def generate_quotes_pdf(df_quotes):
     
     for book_name, group in grouped:
         story.append(Paragraph(f"Tên sách: {book_name}", book_header_style))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#fde68a"), spaceAfter=8))
         
         for idx, row in group.iterrows():
             quote_text = f"<b>Trang {row['Trang']}:</b> &ldquo;{row['Trích đoạn']}&rdquo;"
-            reason_text = f"<b>Lý do chọn:</b> {row['Lý do chọn']}" if row['Lý do chọn'] else ""
-            rephrase_text = f"<b>Cảm nhận cá nhân:</b> {row['Diễn đạt lại cá nhân']}" if row['Diễn đạt lại cá nhân'] else ""
-            emotion_text = f"<b>Tầng cảm xúc:</b> {row['Tầng cảm xúc']} &nbsp;&nbsp;|&nbsp;&nbsp; <i>{row['Thời gian']}</i>"
+            story.append(Paragraph(quote_text, content_style))
             
-            cell_content = [
-                Paragraph(quote_text, content_style),
-            ]
-            if reason_text:
-                cell_content.append(Spacer(1, 4))
-                cell_content.append(Paragraph(reason_text, content_style))
-            if rephrase_text:
-                cell_content.append(Spacer(1, 4))
-                cell_content.append(Paragraph(rephrase_text, content_style))
+            if row['Lý do chọn']:
+                story.append(Spacer(1, 3))
+                story.append(Paragraph(f"<b>Lý do chọn:</b> {row['Lý do chọn']}", content_style))
                 
-            cell_content.append(Spacer(1, 5))
-            cell_content.append(Paragraph(emotion_text, meta_style))
+            if row['Diễn đạt lại cá nhân']:
+                story.append(Spacer(1, 3))
+                story.append(Paragraph(f"<b>Cảm nhận cá nhân:</b> {row['Diễn đạt lại cá nhân']}", content_style))
+                
+            story.append(Spacer(1, 4))
+            emotion_text = f"<b>Tầng cảm xúc:</b> {row['Tầng cảm xúc']} &nbsp;&nbsp;|&nbsp;&nbsp; <i>{row['Thời gian']}</i>"
+            story.append(Paragraph(emotion_text, meta_style))
             
-            quote_table = Table([[cell_content]], colWidths=[500])
-            quote_table.setStyle(TableStyle([
-                # Đổi màu nền khung từng câu thành màu vàng kem đậm hơn nền trang một chút để tạo chiều sâu
-                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#fef3c7")), 
-                # Viền khung màu nâu nhạt ấm áp
-                ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#fde68a")), 
-                ('TOPPADDING', (0,0), (-1,-1), 8),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-                ('LEFTPADDING', (0,0), (-1,-1), 10),
-                ('RIGHTPADDING', (0,0), (-1,-1), 10),
-            ]))
-            
-            story.append(quote_table)
-            story.append(Spacer(1, 10))
+            # Thêm một đường gạch ngang nhỏ phân cách giữa các câu trích dẫn trong cùng một sách
+            story.append(Spacer(1, 8))
+            story.append(HRFlowable(width="100%", thickness=0.3, color=colors.HexColor("#fef3c7"), spaceAfter=8))
             
         story.append(Spacer(1, 10))
 
-    # Truyền hàm vẽ nền vàng ấm vào hàm build thông qua tham số onFirstPage và onLaterPages
     doc.build(story, onFirstPage=draw_warm_background, onLaterPages=draw_warm_background)
     buffer.seek(0)
     return buffer.getvalue()
