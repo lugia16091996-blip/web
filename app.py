@@ -7,8 +7,9 @@ from utils.document_processor import (
     parse_txt_to_pages,
 )
 from utils.storage_manager import convert_df_to_excel, init_session_state
-from utils.tts_player import render_tts_player , render_audio_section
+from utils.tts_player import render_audio_section, render_tts_player
 from utils.push_ggsheet import push_data_to_google_sheet  
+
 # Cấu hình tiêu đề trang web
 st.set_page_config(
     page_title="Text to speech and notebook", page_icon="📚", layout="centered"
@@ -69,33 +70,27 @@ if uploaded_file is not None:
         )
 
       except ValueError as e:
-        # Bắt lỗi nếu PDF là file scan
         st.error(f"⚠️ {e}")
       except Exception as e:
         st.error(f"⚠️ Đã xảy ra lỗi khi đọc file: {e}")
         
 # 2. Chọn trang thông minh (Tự động giới hạn tối đa 2 trang để tối ưu cho Mobile)
-
 if len(st.session_state.book_pages) > 0:
   total_pages = len(st.session_state.book_pages)
   page_list = list(range(1, total_pages + 1))
 
-  # Khởi tạo biến trạng thái trang hiện tại nếu chưa có
   if "current_page" not in st.session_state:
     st.session_state.current_page = 1
 
-  # Đảm bảo giới hạn không vượt quá tổng số trang
   if st.session_state.current_page > total_pages:
     st.session_state.current_page = total_pages
 
   st.markdown("---")
   st.subheader("📖 Chọn trang bắt đầu (Đọc tự động 2 trang)")
 
-  # CÁCH FIX: Sử dụng hàm callback khi thay đổi selectbox để cập nhật current_page an toàn
   def update_page_from_selectbox():
     st.session_state.current_page = st.session_state.select_from_page_box
 
-  # Dùng index tương ứng với current_page hiện tại
   current_index = st.session_state.current_page - 1
 
   from_page = st.selectbox(
@@ -106,13 +101,9 @@ if len(st.session_state.book_pages) > 0:
       on_change=update_page_from_selectbox,
   )
 
-  # Đồng bộ lại biến from_page với current_page
   from_page = st.session_state.current_page
-
-  # Tự động tính trang kết thúc (giới hạn tối đa 2 trang cho Mobile)
   to_page = min(from_page + 1, total_pages)
 
-  # Gom nội dung của 2 trang này lại
   active_reading_content = ""
   start_idx = max(0, from_page - 1)
   end_idx = min(total_pages, to_page)
@@ -128,7 +119,6 @@ if len(st.session_state.book_pages) > 0:
   )
   dynamic_text_key = f"editable_reading_box_{from_page}_{to_page}"
 
-  # CSS tùy chỉnh font và cỡ chữ
   st.markdown(
       """
       <style>
@@ -153,49 +143,96 @@ if len(st.session_state.book_pages) > 0:
       key=dynamic_text_key,
   )
 
-
-# 3 & 4. GỌI TRÌNH PHÁT AUDIO VÀ NÚT CHUYỂN TRANG (ĐÃ ĐƯỢC GÓI GỌN TRONG MODULE)
+  # 3 & 4. GỌI TRÌNH PHÁT AUDIO VÀ NÚT CHUYỂN TRANG
   render_audio_section(edited_reading_content, total_pages)
 
+# Tự động lấy tên sách từ file đang upload (nếu có), nếu chưa upload thì để trống
+default_book_name = ""
+if "current_file_name" in st.session_state:
+    default_book_name = st.session_state.current_file_name.rsplit(".", 1)[0]
 
+# 5. Khu vực lưu câu hay (Nâng cấp đầy đủ 6 trường)
+st.markdown("---")
+st.subheader("✍️ Lưu lại câu hay & Cảm nhận sâu")
 
-  # 5. Khu vực lưu câu hay
-  st.markdown("---")
-  st.subheader("✍️ Lưu lại câu hay & Số trang tương ứng")
-  with st.form("quote_form"):
-    quote_input = st.text_area(
-        "Nhập hoặc dán câu tâm đắc vừa nghe vào đây:",
-        value="",
-        placeholder="Ví dụ: Đời ngắn đừng ngủ dài...",
+with st.form("quote_form"):
+  col1, col2 = st.columns([3, 1])
+  with col1:
+    book_name = st.text_input(
+        "📚 Tên sách:",
+        value=default_book_name,
+        placeholder="Nhập tên cuốn sách bạn đang đọc...",
     )
+  with col2:
     recorded_page = st.number_input(
-        "Số trang đang đọc khi gặp câu này:",
-        min_value=from_page,
-        max_value=to_page,
-        value=from_page,
+        "📖 Trang số:",
+        min_value=1,
+        max_value=len(st.session_state.book_pages) if len(st.session_state.book_pages) > 0 else 1000,
+        value=st.session_state.get("current_page", 1),
     )
-    note_id = st.text_input(
-        "Ghi chú cá nhân (nếu có):", placeholder="Bài học rút ra..."
-    )
-    submitted = st.form_submit_button("💾 Lưu vào bộ nhớ")
 
-    if submitted and quote_input:
+  quote_input = st.text_area(
+      "💬 Trích đoạn gốc:",
+      value="",
+      placeholder="Nhập hoặc dán câu / đoạn văn tâm đắc vào đây...",
+      height=100,
+  )
+
+  col3, col4 = st.columns(2)
+  with col3:
+    reason_input = st.text_area(
+        "💡 Lý do chọn câu này:",
+        placeholder="Tại sao câu này lại thu hút bạn?",
+        height=100,
+    )
+  with col4:
+    rephrase_input = st.text_area(
+        "🔄 Diễn đạt lại theo ý cá nhân:",
+        placeholder="Tóm tắt hoặc viết lại bằng vốn từ của chính bạn...",
+        height=100,
+    )
+
+  emotion_level = st.select_slider(
+      "🎭 Tầng cảm xúc khi đọc / nghe:",
+      options=[
+          "🌱 Bình thản",
+          "🤔 Suy ngẫm",
+          "💡 Chạm / Thức tỉnh",
+          "🔥 Truyền cảm hứng",
+          "❤️ Súc động sâu sắc",
+      ],
+      value="💡 Chạm / Thức tỉnh",
+  )
+
+  submitted = st.form_submit_button("💾 Lưu vào bộ nhớ")
+
+  if submitted:
+    if not quote_input.strip():
+      st.warning("⚠️ Vui lòng nhập nội dung trích đoạn trước khi lưu!")
+    else:
+      current_time = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+
       st.session_state.saved_quotes.append({
-          "Trang số": recorded_page,
-          "Câu nói / Đoạn hay": quote_input,
-          "Ghi chú": note_id,
-          "Thời gian": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
+          "Tên sách": book_name if book_name else "Chưa rõ tên sách",
+          "Trang": recorded_page,
+          "Trích đoạn": quote_input,
+          "Lý do chọn": reason_input,
+          "Diễn đạt lại cá nhân": rephrase_input,
+          "Tầng cảm xúc": emotion_level,
+          "Thời gian": current_time,
       })
-      st.success(f"Đã lưu câu hay ở Trang {recorded_page} thành công!")
+      st.success(
+          f"✅ Đã lưu thành công câu hay trong cuốn **'{book_name}'** (Trang"
+          f" {recorded_page})!"
+      )
 
-
-# 6. Hiển thị danh sách và xuất Excel / Push Google Sheets (Chỉ giữ lại 1 khối duy nhất này)
+# 6. Hiển thị danh sách và xuất Excel / Push Google Sheets
 if st.session_state.saved_quotes:
     st.markdown("---")
     st.subheader(f"📋 Danh sách câu hay đã lưu ({len(st.session_state.saved_quotes)} câu)")
 
     df_quotes = pd.DataFrame(st.session_state.saved_quotes)
-    df_quotes = df_quotes.sort_values(by="Trang số")
+    df_quotes = df_quotes.sort_values(by="Trang")
     st.dataframe(df_quotes, use_container_width=True)
 
     st.markdown("---")
@@ -209,11 +246,10 @@ if st.session_state.saved_quotes:
             data=excel_data,
             file_name="sach_va_cau_hay.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="btn_download_excel_quotes"  # <--- Thêm key này vào để chống trùng lặp ID tuyệt đối
+            key="btn_download_excel_quotes"
         )
         
     with col_s2:
-        # Trong khối nút đẩy dữ liệu
         if st.button("☁️ Đẩy dữ liệu lên Google Sheets", use_container_width=True):
             with st.spinner("Đang đồng bộ lên Google Sheets..."):
                 book_title = st.session_state.get("current_file_name", "Sách").rsplit(".", 1)[0]
