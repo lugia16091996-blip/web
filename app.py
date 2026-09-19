@@ -265,7 +265,7 @@ if st.session_state.saved_quotes:
         safe_book_name = safe_book_name[:50]
         
         # Ghép thành tên file hoàn chỉnh: 20260919_143500_Jack_Reacher_9_cau_hay.xlsx
-        dynamic_file_name = f"{time_str}_{safe_book_name}_cau_hay.xlsx"
+        dynamic_file_name = f"{time_str}_{safe_book_name}_notebook.xlsx"
 
         st.download_button(
             label="📊 Tải xuống file Excel (.xlsx)",
