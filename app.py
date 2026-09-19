@@ -278,3 +278,26 @@ if st.session_state.saved_quotes:
         st.session_state.book_pages = []
         st.session_state.current_page = 1
         st.rerun()
+
+    # Kiểm tra nếu đã upload sách và có dữ liệu phân trang
+    if len(st.session_state.book_pages) > 0:
+        st.markdown("---")
+        st.subheader("📚 Xuất toàn bộ nội dung sách ra PDF (Nền vàng ấm, Chữ to)")
+        
+        from utils.pdf_generator import generate_full_book_pdf
+        
+        # Lấy tên sách sạch từ file đang upload
+        current_book_name = st.session_state.get("current_file_name", "sach").rsplit(".", 1)[0]
+        
+        if st.button("✨ Gen lại toàn bộ cuốn sách thành PDF chữ to", use_container_width=True):
+            with st.spinner("Đang tổng hợp toàn bộ các trang sách và dựng file PDF, chờ chút xíu nha..."):
+                full_pdf_bytes = generate_full_book_pdf(st.session_state.book_pages, current_book_name)
+                
+                st.success("Đã gen xong toàn bộ cuốn sách thành công!")
+                st.download_button(
+                    label="📥 Tải xuống file PDF toàn văn (Đọc cực êm mắt)",
+                    data=full_pdf_bytes,
+                    file_name=f"{current_book_name}_toan_van_chu_to.pdf",
+                    mime="application/pdf",
+                    key="btn_download_full_book_pdf"
+                )
