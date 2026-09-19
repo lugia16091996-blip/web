@@ -6,6 +6,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
 
 # Đăng ký font tiếng Việt
 font_path = os.path.join(os.path.dirname(__file__), "../assets/Merriweather_24pt-Regular.ttf")
@@ -16,35 +17,49 @@ if os.path.exists(font_path):
 else:
     font_name = 'Helvetica'
 
-# Biến phụ trợ cho canvas callback
-fn_font_name = font_name 
+# Lớp canvas thông minh để tự động nhận diện và in Tên Sách tương ứng ở Header từng trang
+class BookHeaderCanvas(canvas.Canvas):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pages = []
 
-def draw_first_page(canvas, doc):
-    canvas.saveState()
-    # 1. Vẽ màu nền vàng ấm toàn trang
-    canvas.setFillColor(colors.HexColor("#fbf7ee"))
-    canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
-    canvas.restoreState()
+    def showPage(self):
+        self.pages.append(dict(self.__dict__))
+        self._startPage()
 
-def draw_later_pages(canvas, doc):
-    canvas.saveState()
-    # 1. Vẽ màu nền vàng ấm toàn trang
-    canvas.setFillColor(colors.HexColor("#fbf7ee"))
-    canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
-    
-    # 2. Vẽ Running Header phía trên cùng
-    canvas.setFont(fn_font_name, 9)
-    canvas.setFillColor(colors.HexColor("#78716c"))
-    canvas.drawString(55, A4[1] - 35, "SỔ TAY CÂU HAY & CẢM NHẬN SÂU")
-    canvas.setStrokeColor(colors.HexColor("#e7e5e4"))
-    canvas.setLineWidth(0.75)
-    canvas.line(55, A4[1] - 42, A4[0] - 55, A4[1] - 42)
-    canvas.restoreState()
+    def save(self):
+        # Lần chạy thứ 2: Vẽ background và header động cho từng trang
+        num_pages = len(self.pages)
+        for page in self.pages:
+            self.__dict__.update(page)
+            self.draw_background_and_header()
+            super().showPage()
+        super().save()
+
+    def draw_background_and_header(self):
+        self.saveState()
+        # 1. Vẽ màu nền vàng ấm toàn trang
+        self.setFillColor(colors.HexColor("#fbf7ee"))
+        self.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
+        
+        # 2. Running Header ở trang 2 trở đi (Hiển thị tiêu đề sách động)
+        if self._pageNumber > 1:
+            self.setFont(font_name, 9)
+            self.setFillColor(colors.HexColor("#78716c"))
+            
+            # Lấy tên sách tương ứng từ thuộc tính được lưu trong canvas trên từng trang
+            book_title_header = getattr(self, '_current_book_title', 'SỔ TAY CÂU HAY & CẢM NHẬN SÂU')
+            self.drawString(55, A4[1] - 35, f"Sách: {book_title_header}")
+            
+            self.setStrokeColor(colors.HexColor("#e7e5e4"))
+            self.setLineWidth(0.75)
+            self.line(55, A4[1] - 42, A4[0] - 55, A4[1] - 42)
+            
+        self.restoreState()
 
 def generate_quotes_pdf(df_quotes):
     buffer = io.BytesIO()
     
-    # Mở rộng lề sang hai bên (left/right = 55) để trang giấy gọn gàng, không bị bè ra quá rộng
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -80,13 +95,12 @@ def generate_quotes_pdf(df_quotes):
         keepWithNext=True
     )
     
-    # TĂNG MẠNH CỠ CHỮ VÀ KHOẢNG CÁCH DÒNG (Rất thoáng, không bao giờ bị khít)
     content_style = ParagraphStyle(
         'ContentText',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=15,      # Cỡ chữ rất lớn, đọc cực kỳ dễ chịu
-        leading=26,       # Giãn chiều cao dòng thênh thang
+        fontSize=15,      # Cỡ chữ lớn, đọc êm mắt
+        leading=26,       # Giãn dòng thênh thang
         textColor=colors.HexColor("#292524"),
         spaceAfter=10
     )
@@ -107,12 +121,19 @@ def generate_quotes_pdf(df_quotes):
     grouped = df_quotes.groupby("Tên sách")
     
     for book_name, group in grouped:
-        # Tiêu đề tên sách
+        # Hàm callback đánh dấu tên sách cho trang hiện tại khi build flowable
+        def set_book_canvas_title(canvas, doc, title=book_name):
+            canvas._current_book_title = title
+
+        # Chèn đoạn flowable trong suốt để cập nhật tiêu đề sách vào canvas theo từng trang chảy văn bản
+        from reportlab.platypus import Macro
+        story.append(Macro(f"self._current_book_title = {repr(book_name)}"))
+
+        # Tiêu đề tên sách hiển thị trong nội dung
         story.append(Paragraph(f"Tên sách: {book_name}", book_header_style))
         story.append(HRFlowable(width="100%", thickness=1.2, color=colors.HexColor("#d79922"), spaceAfter=16))
         
         for idx, row in group.iterrows():
-            # Trích đoạn to rõ, giãn dòng siêu thoáng
             quote_text = f"<b>Trang {row['Trang']}:</b> &ldquo;{row['Trích đoạn']}&rdquo;"
             story.append(Paragraph(quote_text, content_style))
             
@@ -128,12 +149,12 @@ def generate_quotes_pdf(df_quotes):
             emotion_text = f"<b>Tầng cảm xúc:</b> {row['Tầng cảm xúc']} &nbsp;&nbsp;|&nbsp;&nbsp; <i>{row['Thời gian']}</i>"
             story.append(Paragraph(emotion_text, meta_style))
             
-            # Dấu gạch ngang `---` phân tách rộng rãi giữa các trích dẫn
             story.append(Spacer(1, 16))
             story.append(HRFlowable(width="50%", thickness=1, color=colors.HexColor("#d79922"), hAlign='CENTER', spaceAfter=20))
             
         story.append(Spacer(1, 20))
 
-    doc.build(story, onFirstPage=draw_first_page, onLaterPages=draw_later_pages)
+    # Sử dụng BookHeaderCanvas để tự động nhận diện tiêu đề sách ở header từng trang
+    doc.build(story, canvasmaker=BookHeaderCanvas)
     buffer.seek(0)
     return buffer.getvalue()
