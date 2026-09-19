@@ -7,21 +7,18 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-# 1. Đăng ký font tiếng Việt một lần duy nhất khi load module
-# Trỏ chuẩn xác vào thư mục assets bên cạnh file script hiện tại
+# Đăng ký font tiếng Việt
 font_path = os.path.join(os.path.dirname(__file__), "../assets/Merriweather_24pt-Regular.ttf")
 
 if os.path.exists(font_path):
     pdfmetrics.registerFont(TTFont('VietnameseFont', font_path))
     font_name = 'VietnameseFont'
 else:
-    # Fallback nếu vô tình quên bỏ file vào assets
     font_name = 'Helvetica'
     
 def generate_quotes_pdf(df_quotes):
     buffer = io.BytesIO()
     
-    # Thiết lập trang A4, lề chuẩn để đóng gáy (lề trái rộng hơn chút: 50pt, các lề khác 40pt)
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -33,7 +30,6 @@ def generate_quotes_pdf(df_quotes):
     
     story = []
         
-    # Định nghĩa Styles sử dụng đúng font_name đã đăng ký phía trên
     styles = getSampleStyleSheet()
     
     title_style = ParagraphStyle(
@@ -42,7 +38,7 @@ def generate_quotes_pdf(df_quotes):
         fontName=font_name,
         fontSize=18,
         leading=22,
-        alignment=1, # Canh giữa
+        alignment=1,
         textColor=colors.HexColor("#1e293b"),
         spaceAfter=15
     )
@@ -54,8 +50,8 @@ def generate_quotes_pdf(df_quotes):
         fontSize=13,
         leading=16,
         textColor=colors.HexColor("#0f766e"),
-        spaceBefore=10,
-        spaceAfter=5
+        spaceBefore=12,
+        spaceAfter=6
     )
     
     content_style = ParagraphStyle(
@@ -63,7 +59,7 @@ def generate_quotes_pdf(df_quotes):
         parent=styles['Normal'],
         fontName=font_name,
         fontSize=10,
-        leading=14,
+        leading=15,
         textColor=colors.HexColor("#334155")
     )
     
@@ -72,26 +68,24 @@ def generate_quotes_pdf(df_quotes):
         parent=styles['Normal'],
         fontName=font_name,
         fontSize=9,
-        leading=12,
+        leading=13,
         textColor=colors.HexColor("#64748b")
     )
 
-    # Tiêu đề tài liệu
-    story.append(Paragraph("📖 SỔ TAY CÂU HAY & CẢM NHẬN SÂU", title_style))
+    # Tiêu đề tài liệu (Dùng text thuần thay cho emoji)
+    story.append(Paragraph("SỔ TAY CÂU HAY & CẢM NHẬN SÂU", title_style))
     story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#0f766e"), spaceAfter=15))
     
-    # Gom nhóm theo Tên sách
     grouped = df_quotes.groupby("Tên sách")
     
     for book_name, group in grouped:
-        story.append(Paragraph(f"📚 Sách: {book_name}", book_header_style))
+        story.append(Paragraph(f"Tên sách: {book_name}", book_header_style))
         
         for idx, row in group.iterrows():
-            # Tạo bảng thông tin cho từng câu hay để đóng khung gọn gàng
-            quote_text = f"<b>Trang {row['Trang']}:</b> \"{row['Trích đoạn']}\""
-            reason_text = f"💡 <b>Lý do chọn:</b> {row['Lý do chọn']}" if row['Lý do chọn'] else ""
-            rephrase_text = f"🔄 <b>Cảm nhận cá nhân:</b> {row['Diễn đạt lại cá nhân']}" if row['Diễn đạt lại cá nhân'] else ""
-            emotion_text = f"🎭 <b>Cảm xúc:</b> {row['Tầng cảm xúc']} &nbsp;&nbsp;|&nbsp;&nbsp; ⏰ <i>{row['Thời gian']}</i>"
+            quote_text = f"<b>Trang {row['Trang']}:</b> &ldquo;{row['Trích đoạn']}&rdquo;"
+            reason_text = f"<b>Lý do chọn:</b> {row['Lý do chọn']}" if row['Lý do chọn'] else ""
+            rephrase_text = f"<b>Cảm nhận cá nhân:</b> {row['Diễn đạt lại cá nhân']}" if row['Diễn đạt lại cá nhân'] else ""
+            emotion_text = f"<b>Tầng cảm xúc:</b> {row['Tầng cảm xúc']} &nbsp;&nbsp;|&nbsp;&nbsp; <i>{row['Thời gian']}</i>"
             
             cell_content = [
                 Paragraph(quote_text, content_style),
@@ -103,10 +97,9 @@ def generate_quotes_pdf(df_quotes):
                 cell_content.append(Spacer(1, 4))
                 cell_content.append(Paragraph(rephrase_text, content_style))
                 
-            cell_content.append(Spacer(1, 4))
+            cell_content.append(Spacer(1, 5))
             cell_content.append(Paragraph(emotion_text, meta_style))
             
-            # Đóng vào Table khung bo viền
             quote_table = Table([[cell_content]], colWidths=[500])
             quote_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#f8fafc")),
