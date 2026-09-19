@@ -35,7 +35,7 @@ def draw_later_pages(canvas, doc):
     # 2. Vẽ Running Header phía trên cùng
     canvas.setFont(fn_font_name, 9)
     canvas.setFillColor(colors.HexColor("#78716c"))
-    canvas.drawString(55, A4[1] - 35, "SỔ TAY CÂU HAY & CẢM NHẬN SÂU")
+    canvas.drawString(55, A4[1] - 35, "SỔ TAY CỦA BẠN - SUY NGHĨ CỦA BẠN")
     canvas.setStrokeColor(colors.HexColor("#e7e5e4"))
     canvas.setLineWidth(0.75)
     canvas.line(55, A4[1] - 42, A4[0] - 55, A4[1] - 42)
