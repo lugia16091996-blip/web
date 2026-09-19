@@ -5,15 +5,16 @@ import streamlit as st
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
+
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-
 def _get_service():
-    creds = Credentials.from_service_account_info(
-        dict(st.secrets["gcp_service_account"]), scopes=SCOPES
+    # Trỏ thẳng đến đường dẫn file JSON nằm trong thư mục .streamlit của bạn
+    creds = Credentials.from_service_account_file(
+        r".streamlit/readbook-509104-4e0d7f4ac3c8.json", 
+        scopes=SCOPES
     )
     return build("sheets", "v4", credentials=creds, cache_discovery=False)
-
 
 def _safe_tab_name(name: str) -> str:
     # Tên tab tối đa 100 ký tự, không được chứa [ ] * ? / \ :
