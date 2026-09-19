@@ -219,3 +219,9 @@ if st.session_state.saved_quotes:
                 book_title = st.session_state.get("current_file_name", "Sách").rsplit(".", 1)[0]
                 if push_data_to_google_sheet(df_quotes, book_title):
                     st.success("Đồng bộ dữ liệu lên Google Sheets thành công! 🎉")
+
+    if st.button("🗑️ Xóa sạch danh sách để đọc cuốn tiếp theo", key="btn_clear_all_quotes"):
+        st.session_state.saved_quotes = []
+        st.session_state.book_pages = []
+        st.session_state.current_page = 1
+        st.rerun()
