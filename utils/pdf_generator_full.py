@@ -1,11 +1,22 @@
 import io
 import os
+import re
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+
+def clean_text_block(text):
+    """Hàm làm sạch văn bản: xóa khoảng trắng thừa, gom dòng gãy khúc thành đoạn chuẩn"""
+    if not text:
+        return ""
+    # Thay thế các dạng xuống dòng kèm khoảng trắng xung quanh bằng một khoảng trắng đơn
+    cleaned = re.sub(r'\s*\n\s*', ' ', text)
+    # Gom nhiều khoảng trắng liền nhau thành 1 khoảng trắng duy nhất
+    cleaned = re.sub(r'[ \t]+', ' ', cleaned)
+    return cleaned.strip()
 
 def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
     buffer = io.BytesIO()
@@ -45,9 +56,9 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         parent=styles['Normal'],
         fontName=font_name,
         fontSize=15,      # Chữ lớn đọc êm mắt
-        leading=26,       # Giãn dòng rộng rãi, không bị dính chùm
+        leading=26,       # Giãn dòng rộng rãi
         textColor=colors.HexColor("#292524"),
-        spaceAfter=12
+        spaceAfter=10     # Khoảng cách giữa các đoạn vừa phải, không bị thưa quá
     )
 
     def draw_background(canvas, doc):
@@ -70,18 +81,18 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
     story.append(Paragraph(f"<b>{book_title}</b>", title_style))
     story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#d79922"), spaceAfter=20))
 
-    # Duyệt qua từng trang được bóc tách từ file sách gốc và đưa vào PDF
+    # Duyệt qua từng trang được bóc tách từ file sách gốc
     for idx, page_content in enumerate(book_pages):
-        story.append(Paragraph(f"<b>--- Trang {idx + 1} ---</b>", ParagraphStyle('PageHeading', parent=body_style, fontSize=12, textColor=colors.HexColor("#9a3412"))))
-        story.append(Spacer(1, 4))
+        story.append(Paragraph(f"<b>--- Trang {idx + 1} ---</b>", ParagraphStyle('PageHeading', parent=body_style, fontSize=11, textColor=colors.HexColor("#9a3412"), spaceAfter=6)))
         
-        # Xử lý xuống dòng an toàn cho từng đoạn văn trong trang sách
+        # Tách trang theo đoạn văn thô, sau đó chạy hàm làm sạch (clean_text_block)
         paragraphs = page_content.split('\n')
         for para in paragraphs:
-            if para.strip():
-                story.append(Paragraph(para.strip(), body_style))
+            cleaned_para = clean_text_block(para)
+            if cleaned_para:
+                story.append(Paragraph(cleaned_para, body_style))
         
-        # Ngắt trang giữa các trang sách để bố cục rõ ràng như sách thật
+        # Ngắt trang giữa các trang sách
         story.append(PageBreak())
 
     doc.build(story, onFirstPage=draw_background, onLaterPages=draw_background)
