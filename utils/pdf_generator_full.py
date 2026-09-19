@@ -8,15 +8,42 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-def clean_text_block(text):
-    """Hàm làm sạch văn bản: xóa khoảng trắng thừa, gom dòng gãy khúc thành đoạn chuẩn"""
-    if not text:
-        return ""
-    # Thay thế các dạng xuống dòng kèm khoảng trắng xung quanh bằng một khoảng trắng đơn
-    cleaned = re.sub(r'\s*\n\s*', ' ', text)
-    # Gom nhiều khoảng trắng liền nhau thành 1 khoảng trắng duy nhất
-    cleaned = re.sub(r'[ \t]+', ' ', cleaned)
-    return cleaned.strip()
+def clean_and_format_page(page_text):
+    """
+    Hàm làm sạch toàn diện trang sách:
+    - Gom các dòng bị đứt quãng (do ngắt dòng cứng trong file gốc) thành một khối văn bản liền mạch.
+    - Xóa khoảng trắng thừa.
+    - Tách lại thành các đoạn văn chuẩn dựa trên dấu xuống dòng đôi hoặc dấu chấm kết câu kết hợp khoảng trắng lớn.
+    """
+    if not page_text:
+        return []
+        
+    # 1. Thay thế các ký tự xuống dòng kèm khoảng trắng xung quanh bằng một khoảng trắng đơn 
+    # để nối các từ bị bẻ đôi ở cuối dòng (ví dụ: "hai\n bên" -> "hai bên")
+    unified_text = re.sub(r'\s*\n\s*', ' ', page_text)
+    
+    # 2. Chuẩn hóa tất cả các khoảng trắng kép, tab thành 1 khoảng trắng duy nhất
+    unified_text = re.sub(r'[ \t]+', ' ', unified_text).strip()
+    
+    # 3. Nếu sách gốc có phân chia đoạn bằng khoảng trắng đôi hoặc ký tự đặc biệt, ta có thể tách đoạn.
+    # Trong trường hợp các trang sách là một khối văn bản liền, ta gom nó thành các đoạn văn hợp lý.
+    # Ở đây ta sẽ chia nhỏ trang sách thành các đoạn văn nếu gặp dấu xuống dòng gốc (nếu có giữ lại cấu trúc paragraph) hoặc chia theo độ dài/dấu chấm.
+    paragraphs = [p.strip() for p in page_text.split('\n\n') if p.strip()]
+    
+    if not paragraphs:
+        # Nếu không tìm thấy ngắt đoạn đôi, ta coi toàn bộ trang là một hoặc vài đoạn mượt mà
+        paragraphs = [unified_text]
+    else:
+        # Làm sạch từng đoạn nhỏ sau khi chia
+        cleaned_paragraphs = []
+        for p in paragraphs:
+            clean_p = re.sub(r'\s*\n\s*', ' ', p)
+            clean_p = re.sub(r'[ \t]+', ' ', clean_p).strip()
+            if clean_p:
+                cleaned_paragraphs.append(clean_p)
+        paragraphs = cleaned_paragraphs
+        
+    return paragraphs
 
 def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
     buffer = io.BytesIO()
@@ -58,7 +85,7 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         fontSize=15,      # Chữ lớn đọc êm mắt
         leading=26,       # Giãn dòng rộng rãi
         textColor=colors.HexColor("#292524"),
-        spaceAfter=10     # Khoảng cách giữa các đoạn vừa phải, không bị thưa quá
+        spaceAfter=12     # Khoảng cách giữa các đoạn
     )
 
     def draw_background(canvas, doc):
@@ -85,12 +112,11 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
     for idx, page_content in enumerate(book_pages):
         story.append(Paragraph(f"<b>--- Trang {idx + 1} ---</b>", ParagraphStyle('PageHeading', parent=body_style, fontSize=11, textColor=colors.HexColor("#9a3412"), spaceAfter=6)))
         
-        # Tách trang theo đoạn văn thô, sau đó chạy hàm làm sạch (clean_text_block)
-        paragraphs = page_content.split('\n')
-        for para in paragraphs:
-            cleaned_para = clean_text_block(para)
-            if cleaned_para:
-                story.append(Paragraph(cleaned_para, body_style))
+        # Xử lý làm sạch toàn bộ trang sách, nối liền các dòng bị ngắt cụt
+        formatted_paragraphs = clean_and_format_page(page_content)
+        
+        for para in formatted_paragraphs:
+            story.append(Paragraph(para, body_style))
         
         # Ngắt trang giữa các trang sách
         story.append(PageBreak())
