@@ -23,7 +23,11 @@ def render_tts_player(clean_text_for_speech, auto_play=False):
         <select id="voiceSelect"
             style="width: 100%; box-sizing: border-box; padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 4px;">
         </select>
-        <div id="voiceCount" style="font-size: 12px; color: #777; margin-bottom: 10px;"></div>
+        <div id="voiceCount" style="font-size: 12px; color: #777; margin-bottom: 6px;">Đang tải danh sách giọng...</div>
+        <div style="margin-bottom: 10px;">
+            <button onclick="testVoice()" style="background-color: #2f855a; color: white; border: none; padding: 6px 12px; font-size: 13px; border-radius: 5px; cursor: pointer; margin-right: 5px;">🎧 Nghe thử giọng này</button>
+            <button onclick="loadVoices(true)" style="background-color: #718096; color: white; border: none; padding: 6px 12px; font-size: 13px; border-radius: 5px; cursor: pointer;">🔄 Tải lại danh sách</button>
+        </div>
 
         <div style="text-align: center; margin-top: 5px;">
             <button onclick="playSpeech()" style="background-color: #FF4B4B; color: white; border: none; padding: 10px 18px; font-size: 15px; border-radius: 5px; cursor: pointer; margin-right: 5px;">▶ Nghe</button>
@@ -82,8 +86,9 @@ def render_tts_player(clean_text_for_speech, auto_play=False):
             let q = searchBox.value.trim().toLowerCase();
             let viOnly = viOnlyBox.checked;
 
+            let hasVi = allVoices.some(isVi);
             let list = allVoices.filter(v => {
-                if (viOnly && !isVi(v)) return false;
+                if (viOnly && hasVi && !isVi(v)) return false;
                 if (!q) return true;
                 return (v.name + ' ' + v.lang).toLowerCase().indexOf(q) !== -1;
             });
@@ -105,12 +110,16 @@ def render_tts_player(clean_text_for_speech, auto_play=False):
                 sel.selectedIndex = -1;
             }
 
-            countLabel.textContent = 'Hiển thị ' + list.length + ' / ' + allVoices.length + ' giọng';
+            countLabel.textContent = 'Hiển thị ' + list.length + ' / ' + allVoices.length + ' giọng' +
+                (viOnly && !hasVi ? ' (máy này không có giọng tiếng Việt nào, nên hiện tất cả)' : '');
         }
 
-        function loadVoices() {
+        function loadVoices(manual) {
             let v = synth.getVoices();
-            if (!v || v.length === 0) return;
+            if (!v || v.length === 0) {
+                countLabel.textContent = 'Chưa lấy được danh sách giọng từ trình duyệt (đang thử lại...)';
+                return;
+            }
             allVoices = v;
             if (!selectedKey) {
                 selectedKey = loadChoice();
@@ -134,7 +143,19 @@ def render_tts_player(clean_text_for_speech, auto_play=False):
             synth.onvoiceschanged = loadVoices;
         }
         loadVoices();
-        [300, 1000, 2000, 4000].forEach(t => setTimeout(loadVoices, t));
+        let tries = 0;
+        let voiceTimer = setInterval(function () {
+            tries++;
+            if (allVoices.length === 0) loadVoices();
+            if (allVoices.length > 0 || tries >= 20) clearInterval(voiceTimer);
+        }, 500);
+
+        // Hiện mọi lỗi JS ra hộp chẩn đoán để biết chính xác chuyện gì xảy ra
+        window.onerror = function (msg, src, line) {
+            let box = document.getElementById('diagBox');
+            box.style.display = 'block';
+            box.textContent += 'LỖI JS: ' + msg + ' (dòng ' + line + ')' + '\\n';
+        };
 
         function playSpeech() {
             if (synth.paused) {
@@ -173,12 +194,31 @@ def render_tts_player(clean_text_for_speech, auto_play=False):
             synth.cancel();
         }
 
+        // Đọc một câu mẫu đúng ngôn ngữ của giọng, để biết giọng chọn có thật sự được áp dụng không
+        function testVoice() {
+            let voice = getSelectedVoice();
+            if (!voice) {
+                alert('Chưa có giọng nào được chọn.');
+                return;
+            }
+            let sample = isVi(voice)
+                ? 'Xin chào, đây là giọng đọc thử.'
+                : 'Hello, this is a voice test.';
+            synth.cancel();
+            let u = new SpeechSynthesisUtterance(sample);
+            u.voice = voice;
+            u.lang = voice.lang;
+            u.onerror = function (e) { alert('Lỗi đọc thử: ' + e.error); };
+            synth.speak(u);
+        }
+
         function runDiagnostic() {
             let box = document.getElementById('diagBox');
             box.style.display = 'block';
             let voices = synth.getVoices();
             let vi = voices.filter(isVi);
             let lines = [];
+            lines.push('Trình duyệt: ' + navigator.userAgent);
             lines.push('URL protocol: ' + location.protocol);
             lines.push('Secure context: ' + window.isSecureContext);
             lines.push('Tổng số giọng: ' + voices.length);
