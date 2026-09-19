@@ -48,15 +48,15 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         fontSize=15,      # Chữ lớn đọc êm mắt
         leading=26,       # Giãn dòng rộng rãi
         textColor=colors.HexColor("#292524"),
-        spaceAfter=10,    # Khoảng cách vừa phải giữa các đoạn
+        spaceAfter=10,    # Khoảng cách giữa các đoạn
         leftIndent=0
     )
 
-    # Style riêng cho các đoạn hội thoại / hỏi đáp bắt đầu bằng dấu gạch ngang (-)
+    # Style riêng cho các đoạn hội thoại bắt đầu bằng dấu gạch ngang (-)
     dialogue_style = ParagraphStyle(
         'BookDialogue',
         parent=body_style,
-        leftIndent=15,    # Thụt lề nhẹ phía bên trái giúp đoạn hội thoại trông cực kỳ chuyên nghiệp như sách in
+        leftIndent=20,    # Thụt lề sâu hơn một chút để phân biệt rõ câu thoại nhân vật
         spaceBefore=4,
         spaceAfter=6
     )
@@ -88,21 +88,25 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
     full_text = re.sub(r'\s*\n\s*', ' ', full_text)
     full_text = re.sub(r'[ \t]+', ' ', full_text).strip()
 
-    # 3. Tự động xuống dòng/tách đoạn khi gặp dấu hai chấm (:) hoặc dấu gạch ngang (-)
-    # Ta dùng Regex để tìm các vị trí xuất hiện dấu ':' hoặc '-' (đầu dòng đối thoại) để ngắt đoạn thông minh
-    # Biểu thức này giúp tách câu chuẩn xác mà vẫn giữ nguyên cấu trúc ngữ nghĩa
-    raw_segments = re.split(r'(?<=[:])\s+|\s+(?=-\s)', full_text)
+    # 3. Ép buộc xuống hàng thông minh:
+    # - Trước dấu gạch ngang đối thoại (ví dụ: " - " hoặc " -") sẽ được chèn ký hiệu xuống dòng đặc biệt (\n)
+    # - Sau dấu hai chấm kết hợp khoảng trắng (ví dụ: ": ") sẽ được chèn ký hiệu xuống dòng đặc biệt (\n)
+    formatted_text = re.sub(r'\s*-\s+', '\n- ', full_text)
+    formatted_text = re.sub(r':\s+', ':\n', formatted_text)
 
-    for segment in raw_segments:
-        clean_seg = segment.strip()
-        if not clean_seg:
+    # 4. Tách các đoạn văn dựa trên ký tự xuống dòng vừa chèn
+    paragraphs = formatted_text.split('\n')
+
+    for para in paragraphs:
+        clean_para = para.strip()
+        if not clean_para:
             continue
             
-        # Kiểm tra nếu đoạn bắt đầu bằng dấu gạch ngang (-) thì dùng style hội thoại (thụt lề nhẹ cho đẹp)
-        if clean_seg.startswith("-"):
-            story.append(Paragraph(clean_seg, dialogue_style))
+        # Nếu đoạn bắt đầu bằng dấu gạch ngang thì dùng style hội thoại (thụt lề)
+        if clean_para.startswith("-"):
+            story.append(Paragraph(clean_para, dialogue_style))
         else:
-            story.append(Paragraph(clean_seg, body_style))
+            story.append(Paragraph(clean_para, body_style))
 
     doc.build(story, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
