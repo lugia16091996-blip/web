@@ -8,9 +8,11 @@ from googleapiclient.discovery import build
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 def _get_service():
-    # Lấy thư mục chứa file python hiện tại, tự động nối đến file json trong .streamlit
+    # Lấy thư mục hiện tại của file push_ggsheet.py (là thư mục utils)
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    json_path = os.path.join(current_dir, ".streamlit", "readbook-509104-4e0d7f4ac3c8.json")
+    
+    # Dùng os.path.dirname để lùi ra ngoài 1 cấp (về thư mục web/), rồi đi vào .streamlit
+    json_path = os.path.join(os.path.dirname(current_dir), ".streamlit", "readbook-509104-4e0d7f4ac3c8.json")
     
     creds = Credentials.from_service_account_file(
         json_path, 
