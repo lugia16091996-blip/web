@@ -75,7 +75,7 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"⚠️ Đã xảy ra lỗi khi đọc file: {e}")
         
-# 2. Chọn trang thông minh
+# 2. Chọn trang thông minh & Khu vực đọc / Gen toàn văn PDF
 if len(st.session_state.book_pages) > 0:
     total_pages = len(st.session_state.book_pages)
     page_list = list(range(1, total_pages + 1))
@@ -141,6 +141,26 @@ if len(st.session_state.book_pages) > 0:
 
     # 3 & 4. GỌI TRÌNH PHÁT AUDIO VÀ NÚT CHUYỂN TRANG
     render_audio_section(edited_reading_content, total_pages)
+
+    # 📚 NÚT GEN TOÀN BỘ SÁCH RA PDF (Đặt ở đây để luôn hiển thị ngay khi nạp xong sách)
+    st.markdown("---")
+    st.subheader("📚 Xuất toàn bộ nội dung sách ra PDF (Nền vàng ấm, Chữ to)")
+    
+    current_book_name = st.session_state.get("current_file_name", "sach").rsplit(".", 1)[0]
+    
+    if st.button("✨ Gen lại toàn bộ cuốn sách thành PDF chữ to", use_container_width=True, key="btn_gen_full_pdf"):
+        with st.spinner("Đang tổng hợp toàn bộ các trang sách và dựng file PDF, chờ chút xíu nha..."):
+            full_pdf_bytes = generate_full_book_pdf(st.session_state.book_pages, current_book_name)
+            
+            st.success("Đã gen xong toàn bộ cuốn sách thành công!")
+            st.download_button(
+                label="📥 Tải xuống file PDF toàn văn (Đọc cực êm mắt)",
+                data=full_pdf_bytes,
+                file_name=f"{current_book_name}_toan_van_chu_to.pdf",
+                mime="application/pdf",
+                key="btn_download_full_book_pdf",
+                use_container_width=True
+            )
 
 # Tự động lấy tên sách từ file đang upload (nếu có)
 default_book_name = ""
@@ -261,11 +281,11 @@ if st.session_state.saved_quotes:
             if push_data_to_google_sheet(df_quotes, book_title):
                 st.success("Đồng bộ dữ liệu lên Google Sheets thành công! 🎉\n\nLink lưu trữ: https://docs.google.com/spreadsheets/d/1-KdWo05lCdwLFGogWexM6oGc7IKSXtVOvDZSWj0u1n0/edit?gid=529665069#gid=529665069")
 
-    # 3. Tải PDF chuẩn A4
+    # 3. Tải PDF chuẩn A4 (cho danh sách câu hay)
     pdf_data = generate_quotes_pdf(df_quotes)
     pdf_file_name = f"{time_str}_so_tay_cau_hay.pdf"
     st.download_button(
-        label="📄 Tải PDF chuẩn A4",
+        label="📄 Tải PDF chuẩn A4 (Sổ tay câu hay)",
         data=pdf_data,
         file_name=pdf_file_name,
         mime="application/pdf",
@@ -279,26 +299,3 @@ if st.session_state.saved_quotes:
         st.session_state.book_pages = []
         st.session_state.current_page = 1
         st.rerun()
-
-    # Kiểm tra nếu đã upload sách và có dữ liệu phân trang
-    if len(st.session_state.book_pages) > 0:
-        st.markdown("---")
-        st.subheader("📚 Xuất toàn bộ nội dung sách ra PDF (Nền vàng ấm, Chữ to)")
-        
-        from utils.pdf_generator import generate_full_book_pdf
-        
-        # Lấy tên sách sạch từ file đang upload
-        current_book_name = st.session_state.get("current_file_name", "sach").rsplit(".", 1)[0]
-        
-        if st.button("✨ Gen lại toàn bộ cuốn sách thành PDF chữ to", use_container_width=True):
-            with st.spinner("Đang tổng hợp toàn bộ các trang sách và dựng file PDF, chờ chút xíu nha..."):
-                full_pdf_bytes = generate_full_book_pdf(st.session_state.book_pages, current_book_name)
-                
-                st.success("Đã gen xong toàn bộ cuốn sách thành công!")
-                st.download_button(
-                    label="📥 Tải xuống file PDF toàn văn (Đọc cực êm mắt)",
-                    data=full_pdf_bytes,
-                    file_name=f"{current_book_name}_toan_van_chu_to.pdf",
-                    mime="application/pdf",
-                    key="btn_download_full_book_pdf"
-                )
