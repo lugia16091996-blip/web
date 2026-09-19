@@ -239,18 +239,33 @@ if st.session_state.saved_quotes:
     st.subheader("📥 Xuất dữ liệu & Đồng bộ")
 
     col_s1, col_s2 = st.columns(2)
+
     with col_s1:
         excel_data = convert_df_to_excel(df_quotes)
         
-        # Tạo chuỗi thời gian định dạng yyyymmdd_hhmmss (hoặc yyyy-mm-dd)
-        time_str = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        # Lấy thời gian chuẩn theo múi giờ Việt Nam (Asia/Ho_Chi_Minh)
+        time_str = pd.Timestamp.now(tz="Asia/Ho_Chi_Minh").strftime("%Y%m%d_%H%M%S")
         
-        # Lấy tên sách sạch từ biến book_name hoặc current_file_name (bỏ dấu cách, dấu chấm nếu cần)
+        # Xử lý tên sách an toàn tuyệt đối với ký tự đặc biệt và tiếng Việt
+        import unicodedata
         current_book = st.session_state.get("current_file_name", "sach").rsplit(".", 1)[0]
-        safe_book_name = "".join(c if c.isalnum() or c in (" ", "_", "-") else "_" for c in current_book).strip().replace(" ", "_")
         
-        # Ghép thành tên file: [thời gian]_[tên sách].xlsx
-        dynamic_file_name = f"{time_str}_{safe_book_name}_notebook.xlsx"
+        # 1. Chuyển tiếng Việt có dấu thành không dấu
+        nfkd_form = unicodedata.normalize('NFKD', current_book)
+        no_accent_book = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+        
+        # 2. Chỉ giữ lại chữ cái, số, khoảng trắng, gạch dưới, gạch ngang
+        safe_book_name = "".join(c if c.isalnum() or c in (" ", "_", "-") else "_" for c in no_accent_book)
+        
+        # 3. Gom nhiều khoảng trắng/gạch dưới liên tiếp thành 1 và thay khoảng trắng bằng gạch dưới
+        import re
+        safe_book_name = re.sub(r'[\s_]+', '_', safe_book_name).strip('_')
+        
+        # 4. Giới hạn độ dài tên sách (tối đa 50 ký tự) để tránh lỗi đường dẫn file quá dài
+        safe_book_name = safe_book_name[:50]
+        
+        # Ghép thành tên file hoàn chỉnh: 20260919_143500_Jack_Reacher_9_cau_hay.xlsx
+        dynamic_file_name = f"{time_str}_{safe_book_name}_cau_hay.xlsx"
 
         st.download_button(
             label="📊 Tải xuống file Excel (.xlsx)",
