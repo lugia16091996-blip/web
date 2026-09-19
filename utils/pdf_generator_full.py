@@ -40,6 +40,7 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         spaceAfter=15
     )
     
+    # Style chuẩn cho văn bản thông thường
     body_style = ParagraphStyle(
         'BookBody',
         parent=styles['Normal'],
@@ -47,7 +48,17 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         fontSize=15,      # Chữ lớn đọc êm mắt
         leading=26,       # Giãn dòng rộng rãi
         textColor=colors.HexColor("#292524"),
-        spaceAfter=12
+        spaceAfter=10,    # Khoảng cách vừa phải giữa các đoạn
+        leftIndent=0
+    )
+
+    # Style riêng cho các đoạn hội thoại / hỏi đáp bắt đầu bằng dấu gạch ngang (-)
+    dialogue_style = ParagraphStyle(
+        'BookDialogue',
+        parent=body_style,
+        leftIndent=15,    # Thụt lề nhẹ phía bên trái giúp đoạn hội thoại trông cực kỳ chuyên nghiệp như sách in
+        spaceBefore=4,
+        spaceAfter=6
     )
 
     def draw_background(canvas, doc):
@@ -77,23 +88,21 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
     full_text = re.sub(r'\s*\n\s*', ' ', full_text)
     full_text = re.sub(r'[ \t]+', ' ', full_text).strip()
 
-    # 3. Tách văn bản thành các đoạn văn chuẩn dựa vào dấu chấm câu hoặc cấu trúc đoạn (nếu có xuống dòng đôi)
-    # Hoặc để hệ thống tự dàn đều thành các đoạn văn mượt mà
-    paragraphs = [p.strip() for p in full_text.split('.') if p.strip()]
+    # 3. Tự động xuống dòng/tách đoạn khi gặp dấu hai chấm (:) hoặc dấu gạch ngang (-)
+    # Ta dùng Regex để tìm các vị trí xuất hiện dấu ':' hoặc '-' (đầu dòng đối thoại) để ngắt đoạn thông minh
+    # Biểu thức này giúp tách câu chuẩn xác mà vẫn giữ nguyên cấu trúc ngữ nghĩa
+    raw_segments = re.split(r'(?<=[:])\s+|\s+(?=-\s)', full_text)
 
-    # Ghép lại các câu thành đoạn văn hoàn chỉnh để chữ chảy dài liên tục, không bị ngắt trang ngang xương
-    current_chunk = ""
-    for para in paragraphs:
-        sentence = para + "."
-        if len(current_chunk) + len(sentence) < 800: # Gom các câu thành từng khối vừa đủ để dàn trang đẹp mắt
-            current_chunk += " " + sentence
-        else:
-            if current_chunk.strip():
-                story.append(Paragraph(current_chunk.strip(), body_style))
-            current_chunk = sentence
+    for segment in raw_segments:
+        clean_seg = segment.strip()
+        if not clean_seg:
+            continue
             
-    if current_chunk.strip():
-        story.append(Paragraph(current_chunk.strip(), body_style))
+        # Kiểm tra nếu đoạn bắt đầu bằng dấu gạch ngang (-) thì dùng style hội thoại (thụt lề nhẹ cho đẹp)
+        if clean_seg.startswith("-"):
+            story.append(Paragraph(clean_seg, dialogue_style))
+        else:
+            story.append(Paragraph(clean_seg, body_style))
 
     doc.build(story, onFirstPage=draw_background, onLaterPages=draw_background)
     buffer.seek(0)
