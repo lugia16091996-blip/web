@@ -241,10 +241,21 @@ if st.session_state.saved_quotes:
     col_s1, col_s2 = st.columns(2)
     with col_s1:
         excel_data = convert_df_to_excel(df_quotes)
+        
+        # Tạo chuỗi thời gian định dạng yyyymmdd_hhmmss (hoặc yyyy-mm-dd)
+        time_str = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Lấy tên sách sạch từ biến book_name hoặc current_file_name (bỏ dấu cách, dấu chấm nếu cần)
+        current_book = st.session_state.get("current_file_name", "sach").rsplit(".", 1)[0]
+        safe_book_name = "".join(c if c.isalnum() or c in (" ", "_", "-") else "_" for c in current_book).strip().replace(" ", "_")
+        
+        # Ghép thành tên file: [thời gian]_[tên sách].xlsx
+        dynamic_file_name = f"{time_str}_{safe_book_name}_notebook.xlsx"
+
         st.download_button(
             label="📊 Tải xuống file Excel (.xlsx)",
             data=excel_data,
-            file_name="sach_va_cau_hay.xlsx",
+            file_name=dynamic_file_name,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key="btn_download_excel_quotes"
         )
