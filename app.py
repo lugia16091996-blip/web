@@ -238,7 +238,7 @@ if st.session_state.saved_quotes:
     st.markdown("---")
     st.subheader("📥 Xuất dữ liệu & Đồng bộ")
 
-    col_s1, col_s2 = st.columns(2)
+    col_s1, col_s2, col_s3 = st.columns(2)
 
     with col_s1:
         excel_data = convert_df_to_excel(df_quotes)
@@ -281,7 +281,20 @@ if st.session_state.saved_quotes:
                 book_title = st.session_state.get("current_file_name", "Sách").rsplit(".", 1)[0]
                 if push_data_to_google_sheet(df_quotes, book_title):
                     st.success(f"Đồng bộ dữ liệu lên Google Sheets thành công! 🎉\n... \nLink lưu trữ: https://docs.google.com/spreadsheets/d/1-KdWo05lCdwLFGogWexM6oGc7IKSXtVOvDZSWj0u1n0/edit?gid=529665069#gid=529665069")
-
+    with col_s3:
+        # Import hàm tạo PDF ở đầu file app.py: from utils.pdf_generator import generate_quotes_pdf
+        from utils.pdf_generator import generate_quotes_pdf
+        pdf_data = generate_quotes_pdf(df_quotes)
+        pdf_file_name = f"{time_str}_so_tay_cau_hay.pdf"
+        
+        st.download_button(
+            label="📄 Tải PDF chuẩn A4",
+            data=pdf_data,
+            file_name=pdf_file_name,
+            mime="application/pdf",
+            key="btn_download_pdf_quotes"
+        )
+        
     if st.button("🗑️ Xóa sạch danh sách để đọc cuốn tiếp theo", key="btn_clear_all_quotes"):
         st.session_state.saved_quotes = []
         st.session_state.book_pages = []
