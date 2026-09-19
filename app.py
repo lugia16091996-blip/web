@@ -238,7 +238,7 @@ if st.session_state.saved_quotes:
     st.markdown("---")
     st.subheader("📥 Xuất dữ liệu & Đồng bộ")
 
-    col_s1, col_s2, col_s3 = st.columns(2)
+    col_s1, col_s2, col_s3 = st.columns(3)
 
     with col_s1:
         excel_data = convert_df_to_excel(df_quotes)
