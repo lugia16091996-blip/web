@@ -39,26 +39,17 @@ def generate_quotes_pdf(df_quotes):
         
     styles = getSampleStyleSheet()
     
-    title_style = ParagraphStyle(
-        'DocTitle',
+    # Style cho Tên sách (đồng thời là tiêu đề lớn của cuốn sách đó)
+    book_title_style = ParagraphStyle(
+        'BookTitle',
         parent=styles['Heading1'],
         fontName=font_name,
-        fontSize=18,
-        leading=22,
-        alignment=1,
-        textColor=colors.HexColor("#7c2d12"),
-        spaceAfter=15
-    )
-    
-    book_header_style = ParagraphStyle(
-        'BookHeader',
-        parent=styles['Heading2'],
-        fontName=font_name,
-        fontSize=13,
-        leading=16,
-        textColor=colors.HexColor("#9a3412"),
-        spaceBefore=14,
-        spaceAfter=6
+        fontSize=15,
+        leading=18,
+        textColor=colors.HexColor("#7c2d12"), # Màu nâu đỏ trầm ấm
+        spaceBefore=15,
+        spaceAfter=6,
+        keepWithNext=True # Đảm bảo tiêu đề luôn đi liền với dòng nội dung ngay sau nó, không bị mồ côi ở cuối trang
     )
     
     content_style = ParagraphStyle(
@@ -79,38 +70,42 @@ def generate_quotes_pdf(df_quotes):
         textColor=colors.HexColor("#78716c")
     )
 
-    # Tiêu đề tài liệu
-    story.append(Paragraph("SỔ TAY CÂU HAY & CẢM NHẬN SÂU", title_style))
-    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#d79922"), spaceAfter=15))
-    
     grouped = df_quotes.groupby("Tên sách")
     
+    first_book = True
     for book_name, group in grouped:
-        story.append(Paragraph(f"Tên sách: {book_name}", book_header_style))
-        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#fde68a"), spaceAfter=8))
+        # Nếu không phải cuốn sách đầu tiên, thêm khoảng cách ngắt giữa các sách
+        if not first_book:
+            story.append(Spacer(1, 15))
+        first_book = False
+        
+        # 1. Tiêu đề chính là Tên sách
+        story.append(Paragraph(f"<b>{book_name}</b>", book_title_style))
+        # 2. Dấu gạch ngang thanh lịch ngay dưới tiêu đề
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#d79922"), spaceAfter=10))
         
         for idx, row in group.iterrows():
-            quote_text = f"<b>Trang {row['Trang']}:</b> &ldquo;{row['Trích đoạn']}&rdquo;"
+            # In đậm các nhãn và nội dung theo yêu cầu
+            quote_text = f"<b>Trang {row['Trang']}:</b> &ldquo;<b>{row['Trích đoạn']}</b>&rdquo;"
             story.append(Paragraph(quote_text, content_style))
             
             if row['Lý do chọn']:
-                story.append(Spacer(1, 3))
+                story.append(Spacer(1, 4))
                 story.append(Paragraph(f"<b>Lý do chọn:</b> {row['Lý do chọn']}", content_style))
                 
             if row['Diễn đạt lại cá nhân']:
-                story.append(Spacer(1, 3))
-                story.append(Paragraph(f"<b>Cảm nhận cá nhân:</b> {row['Diễn đạt lại cá nhân']}", content_style))
+                story.append(Spacer(1, 4))
+                story.append(Paragraph(f"<b>Cảm nhận cá nhân:</b> <b>{row['Diễn đạt lại cá nhân']}</b>", content_style))
                 
-            story.append(Spacer(1, 4))
-            emotion_text = f"<b>Tầng cảm xúc:</b> {row['Tầng cảm xúc']} &nbsp;&nbsp;|&nbsp;&nbsp; <i>{row['Thời gian']}</i>"
+            story.append(Spacer(1, 5))
+            emotion_text = f"<b>Tầng cảm xúc:</b> <b>{row['Tầng cảm xúc']}</b> &nbsp;&nbsp;|&nbsp;&nbsp; <i>{row['Thời gian']}</i>"
             story.append(Paragraph(emotion_text, meta_style))
             
-            # Thêm một đường gạch ngang nhỏ phân cách giữa các câu trích dẫn trong cùng một sách
+            # Đường gạch ngang nhỏ mờ tinh tế phân cách giữa các trích dẫn trong cùng một sách
             story.append(Spacer(1, 8))
-            story.append(HRFlowable(width="100%", thickness=0.3, color=colors.HexColor("#fef3c7"), spaceAfter=8))
-            
-        story.append(Spacer(1, 10))
+            story.append(HRFlowable(width="100%", thickness=0.3, color=colors.HexColor("#fde68a"), spaceAfter=8))
 
+    # Xây dựng tài liệu với nền vàng ấm
     doc.build(story, onFirstPage=draw_warm_background, onLaterPages=draw_warm_background)
     buffer.seek(0)
     return buffer.getvalue()
