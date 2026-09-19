@@ -1,0 +1,12 @@
+streamlit
+ebooklib
+beautifulsoup4
+pandas
+openpyxl
+pypdf
+python-docx
+gspread
+oauth2client
+streamlit-google-auth
+google-auth-oauthlib
+google-api-python-client
