@@ -6,7 +6,6 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen import canvas
 
 # Đăng ký font tiếng Việt
 font_path = os.path.join(os.path.dirname(__file__), "../assets/Merriweather_24pt-Regular.ttf")
@@ -17,40 +16,30 @@ if os.path.exists(font_path):
 else:
     font_name = 'Helvetica'
 
-# Lớp canvas tùy chỉnh để tự động in Header (Tiêu đề sách) lặp lại ở các trang sau
-class BookCanvas(canvas.Canvas):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.pages = []
+# Hàm vẽ nền vàng ấm và Running Header cho trang ĐẦU TIÊN
+fn_font_name = font_name # Biến phụ trợ cho canvas callback
+def draw_first_page(canvas, doc):
+    canvas.saveState()
+    # 1. Vẽ màu nền vàng ấm toàn trang
+    canvas.setFillColor(colors.HexColor("#fbf7ee"))
+    canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
+    canvas.restoreState()
 
-    def showPage(self):
-        self.pages.append(dict(self.__dict__))
-        self._startPage()
-
-    def save(self):
-        num_pages = len(self.pages)
-        for page in self.pages:
-            self.__dict__.update(page)
-            self.draw_background_and_header()
-            super().showPage()
-        super().save()
-
-    def draw_background_and_header(self):
-        self.saveState()
-        # 1. Vẽ màu nền vàng ấm toàn trang
-        self.setFillColor(colors.HexColor("#fbf7ee"))
-        self.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
-        
-        # 2. Từ trang thứ 2 trở đi, vẽ Running Header ở phía trên cùng
-        if self._pageNumber > 1:
-            self.setFont(font_name, 8)
-            self.setFillColor(colors.HexColor("#78716c"))
-            self.drawString(50, A4[1] - 30, "SỔ TAY CÂU HAY & CẢM NHẬN SÂU")
-            self.setStrokeColor(colors.HexColor("#e7e5e4"))
-            self.setLineWidth(0.5)
-            self.line(50, A4[1] - 35, A4[0] - 40, A4[1] - 35)
-            
-        self.restoreState()
+# Hàm vẽ nền vàng ấm và Running Header cho các trang TỪ TRANG THỨ 2 TRỞ ĐI
+def draw_later_pages(canvas, doc):
+    canvas.saveState()
+    # 1. Vẽ màu nền vàng ấm toàn trang
+    canvas.setFillColor(colors.HexColor("#fbf7ee"))
+    canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
+    
+    # 2. Vẽ Running Header phía trên cùng
+    canvas.setFont(fn_font_name, 8)
+    canvas.setFillColor(colors.HexColor("#78716c"))
+    canvas.drawString(50, A4[1] - 30, "SỔ TAY CÂU HAY & CẢM NHẬN SÂU")
+    canvas.setStrokeColor(colors.HexColor("#e7e5e4"))
+    canvas.setLineWidth(0.5)
+    canvas.line(50, A4[1] - 35, A4[0] - 40, A4[1] - 35)
+    canvas.restoreState()
 
 def generate_quotes_pdf(df_quotes):
     buffer = io.BytesIO()
@@ -95,7 +84,7 @@ def generate_quotes_pdf(df_quotes):
         parent=styles['Normal'],
         fontName=font_name,
         fontSize=10,
-        leading=16,  # Giãn dòng thoáng đãng, không bị dính chữ
+        leading=16,  # Giãn dòng thoáng đãng, dễ đọc
         textColor=colors.HexColor("#292524"),
         spaceAfter=4
     )
@@ -121,7 +110,7 @@ def generate_quotes_pdf(df_quotes):
         story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#d79922"), spaceAfter=12))
         
         for idx, row in group.iterrows():
-            # In đậm thông tin và trích dẫn trực tiếp, tự do ngắt trang không sợ lỗi
+            # In đậm thông tin và trích đoạn trực tiếp, thoải mái ngắt trang
             quote_text = f"<b>Trang {row['Trang']}:</b> &ldquo;{row['Trích đoạn']}&rdquo;"
             story.append(Paragraph(quote_text, content_style))
             
@@ -143,6 +132,7 @@ def generate_quotes_pdf(df_quotes):
             
         story.append(Spacer(1, 10))
 
-    doc.build(story, canvasmaker=BookCanvas)
+    # Build tài liệu và gọi callback vẽ nền + header riêng cho trang đầu và trang sau
+    doc.build(story, onFirstPage=draw_first_page, onLaterPages=draw_later_pages)
     buffer.seek(0)
     return buffer.getvalue()
