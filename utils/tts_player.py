@@ -137,7 +137,7 @@ def render_audio_section(edited_reading_content, total_pages):
   with col_btn1:
     if st.button("⏭️ Trang kế tiếp & Phát", use_container_width=True):
       if st.session_state.current_page + 1 <= total_pages:
-        st.session_state.current_page += 1
+        st.session_state.current_page += 2
         st.session_state.auto_play_triggered = True
         st.rerun()
       else:
