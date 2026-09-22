@@ -3,7 +3,7 @@ import os
 import re
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -35,7 +35,7 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         fontName=font_name,
         fontSize=20,
         leading=28,
-        alignment=1,
+        alignment=1, # Center
         textColor=colors.HexColor("#7c2d12"),
         spaceAfter=15
     )
@@ -45,29 +45,29 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         'BookBody',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=15,      # Chữ lớn đọc êm mắt
-        leading=26,       # Giãn dòng rộng rãi
+        fontSize=15,
+        leading=26,
         textColor=colors.HexColor("#292524"),
-        spaceAfter=10,    # Khoảng cách giữa các đoạn
-        leftIndent=0
+        spaceAfter=10,
+        leftIndent=0,
+        alignment=4,         # 4 = TA_JUSTIFY (Căn đều 2 bên)
+        wordWrap='CJK'       # Tránh ngắt từ lỗi đối với tiếng Việt/Unicode
     )
 
-    # Style riêng cho các đoạn hội thoại bắt đầu bằng dấu gạch ngang
+    # Style riêng cho các đoạn hội thoại
     dialogue_style = ParagraphStyle(
         'BookDialogue',
         parent=body_style,
-        leftIndent=20,    # Thụt lề phân biệt rõ câu thoại nhân vật
+        leftIndent=20,
         spaceBefore=4,
         spaceAfter=6
     )
 
     def draw_background(canvas, doc):
         canvas.saveState()
-        # Vẽ màu nền vàng ấm toàn trang cho mọi trang PDF
         canvas.setFillColor(colors.HexColor("#fbf7ee"))
         canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
         
-        # Vẽ Running Header từ trang thứ 2 trở đi
         if canvas._pageNumber > 1:
             canvas.setFont(font_name, 9)
             canvas.setFillColor(colors.HexColor("#78716c"))
@@ -77,24 +77,32 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
             canvas.line(55, A4[1] - 42, A4[0] - 55, A4[1] - 42)
         canvas.restoreState()
 
-    # Trang bìa / Tiêu đề đầu sách
     story.append(Paragraph(f"<b>{book_title}</b>", title_style))
     story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#d79922"), spaceAfter=20))
 
-    # 1. Gom toàn bộ các trang rời rạc lại thành một chuỗi văn bản khổng lồ duy nhất
-    full_text = " ".join([page_text for page_text in book_pages if page_text])
+    # --- BƯỚC XỬ LÝ CHUỖI VĂN BẢN ĐÚNG CÁCH ---
     
-    # 2. Dọn sạch toàn bộ khoảng trắng thừa, ngắt dòng rác do file gốc để lại
-    full_text = re.sub(r'\s*\n\s*', ' ', full_text)
+    # 1. Gom toàn bộ trang lại
+    full_text = "\n".join([page_text for page_text in book_pages if page_text])
+    
+    # 2. Xóa các dấu gạch nối ngắt từ ở cuối dòng (ví dụ: "sá-\nch" -> "sách")
+    full_text = re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', full_text)
+    
+    # 3. Chuẩn hóa khoảng trắng và dấu xuống dòng rác
+    # Thay thế 1 hoặc nhiều newline bằng 1 khoảng trắng duy nhất
+    full_text = re.sub(r'\r\n|\r|\n', ' ', full_text)
+    
+    # Gộp nhiều khoảng trắng liền nhau thành 1 khoảng trắng
     full_text = re.sub(r'[ \t]+', ' ', full_text).strip()
 
-    # 3. Bổ sung ép buộc xuống hàng thông minh cho CẢ DẤU GẠCH DÀI (–, —) VÀ GẠCH NGẮN (-) VÀ DẤU HAI CHẤM (:)
-    # Bất cứ chỗ nào xuất hiện dấu gạch ngang (ngắn hoặc dài) có khoảng trắng bao quanh đều được tách dòng
+    # 4. Tách dòng thông minh cho hội thoại & dấu hai chấm
     formatted_text = re.sub(r'\s*[-–—]\s+', '\n- ', full_text)
-    # Tách dòng khi gặp dấu hai chấm
-    formatted_text = re.sub(r':\s+', ':\n', formatted_text)
+    
+    # LƯU Ý: Việc tách dòng ở tất cả dấu hai chấm (:) có thể làm vỡ câu bình thường.
+    # Nên dùng regex cẩn thận hơn chỉ tách khi là lời thoại/mục liệt kê:
+    formatted_text = re.sub(r':\s*\n?', ':\n', formatted_text)
 
-    # 4. Tách các đoạn văn dựa trên ký tự xuống dòng vừa chèn
+    # 5. Phân đoạn và tạo Paragraph
     paragraphs = formatted_text.split('\n')
 
     for para in paragraphs:
@@ -102,7 +110,6 @@ def generate_full_book_pdf(book_pages, book_title="Cuốn sách"):
         if not clean_para:
             continue
             
-        # Nếu đoạn bắt đầu bằng dấu gạch ngang (bất kể ngắn hay dài) thì dùng style hội thoại
         if clean_para.startswith(("-", "–", "—")):
             story.append(Paragraph(clean_para, dialogue_style))
         else:
