@@ -1,144 +1,83 @@
+import asyncio
+import os
+import tempfile
+import edge_tts
 import streamlit as st
-import streamlit.components.v1 as components
 
+async def _generate_audio_file(text: str, voice: str, output_file: str):
+    communicate = edge_tts.Communicate(text, voice)
+    await communicate.save(output_file)
 
-def render_tts_player(clean_text_for_speech, auto_play=False):
-  """Hàm render component giao diện phát audio bằng HTML/JS."""
-  # Chuyển đổi cờ boolean thành chuỗi 'true'/'false' để truyền vào JS
-  auto_play_js = "true" if auto_play else "false"
-
-  tts_html = """
-    <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; font-family: sans-serif;">
-        <p style="font-size: 13px; color: #555; margin-bottom: 12px;">
-            Giọng đọc: tự động ưu tiên giọng miền Nam nếu máy có, không thì dùng giọng hệ thống mặc định.
-        </p>
-
-        <div style="text-align: center; margin-top: 5px;">
-            <button onclick="playSpeech()" style="background-color: #FF4B4B; color: white; border: none; padding: 10px 18px; font-size: 15px; border-radius: 5px; cursor: pointer; margin-right: 5px;">▶ Nghe</button>
-            <button onclick="pauseSpeech()" style="background-color: #FFA500; color: white; border: none; padding: 10px 18px; font-size: 15px; border-radius: 5px; cursor: pointer; margin-right: 5px;">⏸ Tạm dừng</button>
-            <button onclick="stopSpeech()" style="background-color: #808080; color: white; border: none; padding: 10px 18px; font-size: 15px; border-radius: 5px; cursor: pointer;">⏹ Dừng</button>
-            <button onclick="runDiagnostic()" style="background-color: #2b6cb0; color: white; border: none; padding: 10px 18px; font-size: 15px; border-radius: 5px; cursor: pointer; margin-left: 5px;">🔧 Test / Chẩn đoán</button>
-        </div>
-
-        <pre id="diagBox" style="display:none; margin-top: 12px; background:#111; color:#0f0; padding:10px; border-radius:6px; font-size:12px; white-space:pre-wrap; word-break:break-all;"></pre>
-
-        <div id="bookTextContent" style="display:none;">REPLACE_ME_TEXT</div>
-    </div>
-
-    <script>
-        let synth = window.speechSynthesis;
-        let keepAliveTimer = null;
-
-        function pickVietnameseVoice() {
-            let voices = synth.getVoices();
-            if (!voices || voices.length === 0) return null;
-
-            let southern = voices.find(v => 
-                v.lang && v.lang.toLowerCase().startsWith('vi') && 
-                /nam minh|gia huy|mien nam|miền nam|south|vi-vn-standard-c|vi-vn-standard-d|vi-vn-wavenet-c|vi-vn-wavenet-d/i.test(v.name)
-            );
-            if (southern) return southern;
-
-            let anyVi = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('vi'));
-            return anyVi || null;
-        }
-
-        function playSpeech() {
-            if (synth.paused) {
-                synth.resume();
-                return;
-            }
-            if (synth.speaking) {
-                synth.cancel();
-            }
-
-            let textToRead = document.getElementById('bookTextContent').innerText;
-            if (!textToRead.trim()) return;
-
-            let utterance = new SpeechSynthesisUtterance(textToRead);
-            utterance.lang = 'vi-VN';
-            let voice = pickVietnameseVoice();
-            if (voice) utterance.voice = voice;
-            utterance.onerror = function (e) {
-                console.log('speech error:', e.error);
-            };
-            synth.speak(utterance);
-        }
-
-        function pauseSpeech() {
-            if (synth.speaking) {
-                synth.pause();
-            }
-        }
-
-        function stopSpeech() {
-            if (keepAliveTimer) clearInterval(keepAliveTimer);
-            keepAliveTimer = null;
-            synth.cancel();
-        }
-
-        if (synth.onvoiceschanged !== undefined) {
-            synth.onvoiceschanged = function () {};
-        }
-
-        function runDiagnostic() {
-            let box = document.getElementById('diagBox');
-            box.style.display = 'block';
-            let lines = [];
-            lines.push('URL protocol: ' + location.protocol);
-            lines.push('Secure context: ' + window.isSecureContext);
-            let voices = synth.getVoices();
-            lines.push('Số giọng đọc: ' + voices.length);
-            box.textContent = lines.join('\\n');
-        }
-
-        // TỰ ĐỘNG PHÁT NẾU CỜ AUTO_PLAY LÀ TRUE
-        window.addEventListener('DOMContentLoaded', () => {
-            if (REPLACE_ME_AUTOPLAY) {
-                // Đợi 1 giây để danh sách giọng đọc (voices) kịp load xong rồi mới gọi phát
-                setTimeout(() => {
-                    playSpeech();
-                }, 1000);
-            }
-        });
-    </script>
+def text_to_speech_mp3(text: str, voice_name: str = "vi-VN-HoaiMyNeural") -> str:
     """
+    Sinh file MP3 từ văn bản sử dụng edge-tts.
+    Trả về đường dẫn tới file MP3 tạm thời.
+    """
+    fp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    temp_filename = fp.name
+    fp.close()
 
-  # Thay thế nội dung văn bản và trạng thái autoplay an toàn bằng hàm replace
-  tts_html = tts_html.replace("REPLACE_ME_TEXT", clean_text_for_speech)
-  tts_html = tts_html.replace("REPLACE_ME_AUTOPLAY", auto_play_js)
+    try:
+        asyncio.run(_generate_audio_file(text, voice_name, temp_filename))
+    except Exception as e:
+        print(f"Lỗi tạo TTS: {e}")
+        return None
 
-  components.html(tts_html, height=340, scrolling=True)
-
+    return temp_filename
 
 def render_audio_section(edited_reading_content, total_pages):
-  """Hàm gom toàn bộ Phần 3 (Audio) và Phần 4 (Nút chuyển trang) vào một chỗ."""
-  st.markdown("### 🔊 Trình phát Audio")
+    """Hàm gom toàn bộ Phần 3 (Audio) và Phần 4 (Nút chuyển trang) dùng MP3."""
+    st.markdown("### 🔊 Trình phát Audio")
 
-  # Làm sạch văn bản
-  clean_text_for_speech = (
-      edited_reading_content.replace('"', "'")
-      .replace("\n", " ")
-      .replace("\r", " ")
-  )
+    # 1. Tối giản giao diện: Chỉ để selectbox chọn giọng miền Nam chuẩn
+    voice_options = {
+        "Nữ Miền Nam (Hoài Mỹ)": "vi-VN-HoaiMyNeural",
+        "Nam Miền Nam (Nam Minh)": "vi-VN-NamMinhNeural"
+    }
+    
+    if "selected_voice_label" not in st.session_state:
+        st.session_state.selected_voice_label = "Nữ Miền Nam (Hoài Mỹ)"
 
-  # Lấy cờ trạng thái
-  is_auto_playing = st.session_state.get("auto_play_triggered", False)
+    selected_label = st.selectbox(
+        "Chọn giọng đọc:", 
+        options=list(voice_options.keys()),
+        index=list(voice_options.keys()).index(st.session_state.selected_voice_label),
+        label_visibility="collapsed" # Ẩn nhãn cho giao diện tối giản
+    )
+    st.session_state.selected_voice_label = selected_label
+    chosen_voice_code = voice_options[selected_label]
 
-  # Truyền cờ vào hàm render TTS HTML
-  render_tts_player(clean_text_for_speech, auto_play=is_auto_playing)
+    # 2. Làm sạch văn bản chuẩn bị đọc
+    clean_text_for_speech = (
+        edited_reading_content.replace('"', "'")
+        .replace("\n", " ")
+        .replace("\r", " ")
+    )
 
-  # Reset cờ ngay sau khi render để không bị lặp lại
-  if is_auto_playing:
-    st.session_state.auto_play_triggered = False
+    # 3. Tiến hành sinh file MP3 ngầm (tốc độ mặc định 1.0, không giới hạn ký tự rườm rà)
+    audio_file_path = None
+    if clean_text_for_speech.strip():
+        with st.spinner("Đang tạo giọng đọc..."):
+            audio_file_path = text_to_speech_mp3(clean_text_for_speech, voice_name=chosen_voice_code)
 
-  # Nút chuyển trang kế tiếp & Auto Play
-  col_btn1, col_btn2 = st.columns([1, 1])
-  with col_btn1:
-    if st.button("⏭️ Trang kế tiếp & Phát", use_container_width=True):
-      if st.session_state.current_page + 1 <= total_pages:
-        st.session_state.current_page += 2
-        st.session_state.auto_play_triggered = True
-        st.rerun()
-      else:
-        st.info("🎉 Đã đến trang cuối cùng của tài liệu rồi bạn ơi!")
+    # Lấy cờ trạng thái tự động phát (khi bấm chuyển trang)
+    is_auto_playing = st.session_state.get("auto_play_triggered", False)
+
+    # 4. Phát audio bằng widget chuẩn của Streamlit (hỗ trợ autoplay mượt mà mọi thiết bị)
+    if audio_file_path and os.path.exists(audio_file_path):
+        st.audio(audio_file_path, format="audio/mp3", autoplay=is_auto_playing)
+
+    # Reset cờ auto play ngay sau khi render xong
+    if is_auto_playing:
+        st.session_state.auto_play_triggered = False
+
+    # 5. Nút chuyển trang kế tiếp & Auto Play
+    col_btn1, col_btn2 = st.columns([1, 1])
+    with col_btn1:
+        if st.button("⏭️ Trang kế tiếp & Phát", use_container_width=True):
+            if st.session_state.current_page + 1 <= total_pages:
+                st.session_state.current_page += 2  # Hoặc +2 tùy logic app của mày
+                st.session_state.auto_play_triggered = True
+                st.rerun()
+            else:
+                st.info("🎉 Đã đến trang cuối cùng của tài liệu rồi bạn ơi!")
